@@ -26,11 +26,7 @@ class EdgeDocumentDetector(DocumentDetector):
 
     def detect(self, image: np.ndarray) -> np.ndarray | None:
         """Detect document quadrilateral using Canny edges."""
-        if len(image.shape) == 3:
-            gray = self.preprocessor.to_grayscale(image)
-        else:
-            gray = image
-
+        gray = self.preprocessor.to_grayscale(image)
         blurred = self.preprocessor.gaussian_blur(gray, self.blur_kernel)
         edges = self.preprocessor.detect_edges(
             blurred,

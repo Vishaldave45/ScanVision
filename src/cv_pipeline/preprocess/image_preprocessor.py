@@ -6,7 +6,11 @@ class ImagePreprocessor:
     """Preprocess images before detection."""
 
     def to_grayscale(self, image: np.ndarray) -> np.ndarray:
-        """Convert a BGR image to grayscale."""
+        """Convert an image to grayscale if not already grayscale."""
+        if image.ndim == 2:
+            return image
+        if image.ndim == 3 and image.shape[2] == 1:
+            return image[:, :, 0]
         return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     def gaussian_blur(

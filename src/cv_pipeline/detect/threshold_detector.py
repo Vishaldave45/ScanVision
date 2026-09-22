@@ -17,19 +17,18 @@ class ThresholdDocumentDetector(DocumentDetector):
         self,
         blur_kernel: tuple[int, int] = (9, 9),
         min_area_ratio: float = 0.20,
+        morph_kernel_size: tuple[int, int] = (11, 11),
     ) -> None:
         self.blur_kernel = blur_kernel
         self.min_area_ratio = min_area_ratio
+        self.morph_kernel_size = morph_kernel_size
 
         self.preprocessor = ImagePreprocessor()
         self.contour_detector = ContourDetector()
 
     def detect(self, image: np.ndarray) -> np.ndarray | None:
         """Segment the document mask using Otsu thresholding on blurred gray image."""
-        if len(image.shape) == 3:
-            gray = self.preprocessor.to_grayscale(image)
-        else:
-            gray = image
+        gray = self.preprocessor.to_grayscale(image)
 
         # Heavy blur to merge text and paper texture into a single bright region
         blurred = cv2.GaussianBlur(gray, self.blur_kernel, 0)
@@ -43,11 +42,14 @@ class ThresholdDocumentDetector(DocumentDetector):
         )
 
         # Morphological close: fill internal text holes and small gaps in the paper mask
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (11, 11))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, self.morph_kernel_size)
         closed_mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
         # Find external contours on the mask
-        contours = self.contour_detector.find_contours(closed_mask)
+        contours = self.contour_detector.find_contours(
+            closed_mask,
+            retrieval_mode=cv2.RETR_EXTERNAL,
+        )
 
         return self.contour_detector.find_document_contour(
             contours,

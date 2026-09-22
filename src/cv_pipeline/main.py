@@ -1,115 +1,99 @@
+import argparse
 from pathlib import Path
 import cv2
 
-from cv_pipeline.capture.image_capture import ImageCapture
-from cv_pipeline.detect import EdgeDocumentDetector, ThresholdDocumentDetector
-from cv_pipeline.ocr.document_preprocessor import DocumentPreprocessor
-from cv_pipeline.preprocess.image_preprocessor import ImagePreprocessor
-from cv_pipeline.transform.perspective import PerspectiveTransformer
+from cv_pipeline.config.settings import PipelineConfig
+from cv_pipeline.geometry.points import order_points
+from cv_pipeline.pipeline.document_pipeline import DocumentPipeline, DocumentPipelineResult
 
 
-def main() -> None:
-    capture = ImageCapture()
-    preprocessor = ImagePreprocessor()
-    transformer = PerspectiveTransformer()
-    ocr_preprocessor = DocumentPreprocessor()
-
-    input_path = Path("data/raw/document.png") if Path("data/raw/document.png").exists() else Path("data/raw/document.jpg")
-    image = capture.read(input_path)
-
-    # Compare detectors
-    edge_detector = EdgeDocumentDetector(min_area_ratio=0.15)
-    threshold_detector = ThresholdDocumentDetector(min_area_ratio=0.15)
-
-    doc_edge = edge_detector.detect(image)
-    doc_thresh = threshold_detector.detect(image)
-
-    print(f"Edge-based detection found document: {doc_edge is not None}")
-    print(f"Threshold-based detection found document: {doc_thresh is not None}")
-
-    # Use the threshold detector result (or fall back to edge detector)
-    document = doc_thresh if doc_thresh is not None else doc_edge
-
-    if document is None:
-        print("No document found by either detector.")
+def display_results(result: DocumentPipelineResult) -> None:
+    """Display intermediate stages in OpenCV windows."""
+    if not result.has_document:
+        print("No document detected to display.")
         return
 
-    from cv_pipeline.geometry.points import order_points
-
-    ordered = order_points(document)
-    print("\n--- Geometry Debugging ---")
-    print(f"Input shape:    {image.shape}")
-    print(f"Detected points:\n{document.reshape(-1, 2)}")
-    print("Ordered corners:")
-    print("  Top-left (TL):     ", ordered[0])
-    print("  Top-right (TR):    ", ordered[1])
-    print("  Bottom-right (BR): ", ordered[2])
-    print("  Bottom-left (BL):  ", ordered[3])
-
-    warped = transformer.warp(
-        image,
-        document,
-    )
-    print(f"Warped shape:   {warped.shape}\n--------------------------")
-
-    # OCR Preprocessing
-    warped_gray = preprocessor.to_grayscale(warped)
-
-    otsu = ocr_preprocessor.otsu_threshold(warped_gray)
-
-    adaptive = ocr_preprocessor.adaptive_threshold(
-        warped_gray,
-        block_size=11,
-        constant=2,
-    )
-
-    cleaned = ocr_preprocessor.morphological_open(
-        adaptive,
-        kernel_size=(3, 3),
-    )
-
-    # Save output images
-    output_dir = Path("data/processed")
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    document_image = image.copy()
-    cv2.drawContours(
-        document_image,
-        [document],
-        -1,
-        (0, 255, 0),
-        3,
-    )
-
-    saved_images = {
-        "01_detected_document.jpg": document_image,
-        "02_scanned_document.jpg": warped,
-        "03_otsu_threshold.jpg": otsu,
-        "04_adaptive_threshold.jpg": adaptive,
-        "05_ocr_ready_cleaned.jpg": cleaned,
-    }
-
-    for filename, img in saved_images.items():
-        save_path = output_dir / filename
-        cv2.imwrite(str(save_path), img)
-        print(f"Saved: {save_path}")
-
-    # Visualization
     windows = {
-        "Detected Document": document_image,
-        "Scanned Document": warped,
-        "Otsu Threshold": otsu,
-        "Adaptive Threshold": adaptive,
-        "OCR Ready (Cleaned)": cleaned,
+        "Detected Document": result.document_image,
+        "Scanned Document": result.warped,
+        "Otsu Threshold": result.otsu,
+        "Adaptive Threshold": result.adaptive,
+        "OCR Ready (Cleaned)": result.cleaned,
     }
 
     for win_name, win_img in windows.items():
-        cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(win_name, 800, 1000)
-        cv2.imshow(win_name, win_img)
+        if win_img is not None:
+            cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
+            cv2.resizeWindow(win_name, 800, 1000)
+            cv2.imshow(win_name, win_img)
 
+    print("Press any key in a preview window to close...")
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+
+def resolve_input_path(raw_dir: Path, requested_path: str | None = None) -> Path:
+    """Resolve input file from arguments or default candidates in raw_dir."""
+    if requested_path:
+        path = Path(requested_path)
+        if path.exists():
+            return path
+        raise FileNotFoundError(f"Specified input file not found: {requested_path}")
+
+    candidates = [
+        raw_dir / "document.png",
+        raw_dir / "document.jpg",
+        raw_dir / "document.jpeg",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    raise FileNotFoundError(
+        f"No sample image found in {raw_dir}. Please place 'document.png' or 'document.jpg' there."
+    )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="ScanVision Document Processing Pipeline")
+    parser.add_argument(
+        "--input",
+        type=str,
+        default=None,
+        help="Path to input document image (default: data/raw/document.[png|jpg])",
+    )
+    parser.add_argument(
+        "--no-display",
+        action="store_true",
+        help="Skip GUI window display (useful in headless/CI environments)",
+    )
+    args = parser.parse_args()
+
+    config = PipelineConfig()
+    pipeline = DocumentPipeline(config=config)
+
+    input_file = resolve_input_path(config.raw_dir, args.input)
+    print(f"Processing document: {input_file}")
+
+    result = pipeline.process_file(input_file)
+
+    if not result.has_document:
+        print("No document detected.")
+        return
+
+    print("Document successfully detected and rectified.")
+    if result.detected_contour is not None and result.warped is not None:
+        ordered = order_points(result.detected_contour)
+        print(f"  Input shape:  {result.original_image.shape}")
+        print(f"  Warped shape: {result.warped.shape}")
+        print(f"  Corners:\n    TL: {ordered[0]}\n    TR: {ordered[1]}\n    BR: {ordered[2]}\n    BL: {ordered[3]}")
+
+    saved = pipeline.save_artifacts(result)
+    for name, path in saved.items():
+        print(f"Saved artifact: {path}")
+
+    if not args.no_display:
+        display_results(result)
 
 
 if __name__ == "__main__":

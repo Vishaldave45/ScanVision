@@ -13,7 +13,29 @@ class PerspectiveTransformer:
         points: np.ndarray,
     ) -> np.ndarray:
         """Apply perspective correction to a four-point region."""
-        rect = order_points(points)
+        if image is None or image.size == 0:
+            raise ValueError("Input image must be a non-empty numpy array.")
+
+        try:
+            points_reshaped = points.reshape(4, 2)
+        except ValueError as err:
+            raise ValueError(
+                f"Expected 4 points of shape (4, 2) or (4, 1, 2), got shape {points.shape}"
+            ) from err
+
+        if not np.all(np.isfinite(points_reshaped)):
+            raise ValueError("Input points contain NaN or Inf values.")
+
+        # Check for duplicate corners
+        if len(np.unique(points_reshaped, axis=0)) < 4:
+            raise ValueError("Input points must contain 4 distinct non-duplicate coordinates.")
+
+        rect = order_points(points_reshaped)
+
+        # Collinear / zero area check: quadrilateral area must be strictly positive
+        quad_area = cv2.contourArea(rect)
+        if quad_area <= 0:
+            raise ValueError("Input points are collinear or form a degenerate polygon.")
 
         top_left, top_right, bottom_right, bottom_left = rect
 
@@ -26,6 +48,11 @@ class PerspectiveTransformer:
         height_right = np.linalg.norm(bottom_right - top_right)
 
         output_height = int(max(height_left, height_right))
+
+        if output_width <= 0 or output_height <= 0:
+            raise ValueError(
+                f"Computed invalid output dimensions: width={output_width}, height={output_height}"
+            )
 
         destination = np.array(
             [

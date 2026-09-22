@@ -8,11 +8,12 @@ class ContourDetector:
     def find_contours(
         self,
         edge_image: np.ndarray,
+        retrieval_mode: int = cv2.RETR_LIST,
     ) -> list[np.ndarray]:
-        """Find contours in a binary edge image."""
+        """Find contours in a binary edge or mask image."""
         contours, _ = cv2.findContours(
             edge_image,
-            cv2.RETR_LIST,
+            retrieval_mode,
             cv2.CHAIN_APPROX_SIMPLE,
         )
 
