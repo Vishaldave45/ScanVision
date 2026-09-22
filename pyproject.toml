@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scanvision"
+version = "0.1.0"
+description = "Computer Vision document scanning and processing pipeline"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "opencv-python>=4.8.0",
+    "numpy>=1.26.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

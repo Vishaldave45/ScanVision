@@ -1,12 +1,16 @@
 import cv2
 
 from cv_pipeline.capture.image_capture import ImageCapture
+from cv_pipeline.detect.contour_detector import ContourDetector
 from cv_pipeline.preprocess.image_preprocessor import ImagePreprocessor
+from cv_pipeline.transform.perspective import PerspectiveTransformer
 
 
 def main() -> None:
     capture = ImageCapture()
     preprocessor = ImagePreprocessor()
+    detector = ContourDetector()
+    transformer = PerspectiveTransformer()
 
     image = capture.read("data/raw/document.jpg")
 
@@ -19,19 +23,42 @@ def main() -> None:
 
     edges = preprocessor.detect_edges(
         blurred,
-        low_threshold=50,
-        high_threshold=150,
+        50,
+        150,
     )
 
-    print("Original:", image.shape)
-    print("Grayscale:", gray.shape)
-    print("Blurred:", blurred.shape)
-    print("Edges:", edges.shape)
+    contours = detector.find_contours(edges)
 
-    cv2.imshow("Original", image)
-    cv2.imshow("Grayscale", gray)
-    cv2.imshow("Blurred", blurred)
-    cv2.imshow("Canny Edges", edges)
+    document = detector.find_document_contour(contours)
+
+    if document is None:
+        print("No document found.")
+        return
+
+    warped = transformer.warp(
+        image,
+        document,
+    )
+
+    document_image = image.copy()
+
+    cv2.drawContours(
+        document_image,
+        [document],
+        -1,
+        (0, 255, 0),
+        3,
+    )
+
+    cv2.imshow(
+        "Detected Document",
+        document_image,
+    )
+
+    cv2.imshow(
+        "Scanned Document",
+        warped,
+    )
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
