@@ -18,13 +18,12 @@ def order_points(
         dtype=np.float32,
     )
 
-    sums = points.sum(axis=1)
-    differences = np.diff(points, axis=1).ravel()
+    sums = points[:, 0] + points[:, 1]
+    differences = points[:, 0] - points[:, 1]
 
-    ordered[0] = points[np.argmin(sums)]
-    ordered[2] = points[np.argmax(sums)]
-
-    ordered[1] = points[np.argmax(differences)]
-    ordered[3] = points[np.argmin(differences)]
+    ordered[0] = points[np.argmin(sums)]          # Top-Left: smallest (x + y)
+    ordered[2] = points[np.argmax(sums)]          # Bottom-Right: largest (x + y)
+    ordered[1] = points[np.argmax(differences)]   # Top-Right: largest (x - y)
+    ordered[3] = points[np.argmin(differences)]   # Bottom-Left: smallest (x - y)
 
     return ordered

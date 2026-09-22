@@ -16,7 +16,7 @@ class ContourDetector:
             cv2.CHAIN_APPROX_SIMPLE,
         )
 
-        return contours
+        return list(contours)
 
     def sort_by_area(
         self,
@@ -32,11 +32,21 @@ class ContourDetector:
     def find_document_contour(
         self,
         contours: list[np.ndarray],
+        image_shape: tuple[int, ...] | None = None,
+        min_area_ratio: float = 0.0,
     ) -> np.ndarray | None:
         """Find the largest contour approximating a quadrilateral."""
         contours = self.sort_by_area(contours)
 
+        min_area = 0.0
+        if image_shape is not None and min_area_ratio > 0.0:
+            h, w = image_shape[:2]
+            min_area = (h * w) * min_area_ratio
+
         for contour in contours:
+            if cv2.contourArea(contour) < min_area:
+                continue
+
             perimeter = cv2.arcLength(
                 contour,
                 True,
