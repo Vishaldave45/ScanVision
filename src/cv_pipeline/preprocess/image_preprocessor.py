@@ -16,3 +16,16 @@ class ImagePreprocessor:
     ) -> np.ndarray:
         """Apply Gaussian smoothing."""
         return cv2.GaussianBlur(image, kernel_size, 0)
+
+    def detect_edges(
+        self,
+        image: np.ndarray,
+        low_threshold: int = 50,
+        high_threshold: int = 150,
+    ) -> np.ndarray:
+        """Detect edges using Canny."""
+        return cv2.Canny(
+            image,
+            low_threshold,
+            high_threshold,
+        )
