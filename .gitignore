@@ -1,4 +1,4 @@
-# Python
+# Python & Caches
 __pycache__/
 *.py[cod]
 *$py.class
@@ -19,12 +19,19 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Virtual Environments
 .venv/
 env/
 venv/
 ENV/
+
+# Environment files
+.env
+.env.*
 
 # IDEs & Editors
 .vscode/
@@ -40,9 +47,17 @@ data/raw/*
 !data/raw/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+
+# Model weights & training outputs
 models/*
 !models/.gitkeep
+*.pt
+*.onnx
+*.pth
+runs/
+wandb/
 
 # OS generated files
 .DS_Store
 Thumbs.db
+
