@@ -112,3 +112,35 @@ python -m cv_pipeline.main --no-display
 pytest -v
 ```
 
+## Project Status
+
+### Phase 1 — Classical Document Scanner + OCR
+**Status: Complete (v0.1.0)**
+
+Implemented:
+- Image capture & validation
+- Grayscale conversion & Gaussian smoothing
+- Canny edge detection & contour approximation
+- Threshold-based document detection (Otsu + `cv2.RETR_EXTERNAL`)
+- Fallback composite detector
+- 4-corner coordinate ordering (`[TL, TR, BR, BL]`)
+- Homography perspective rectification with degenerate checks
+- OCR preprocessing experiments (Otsu, adaptive, morphology)
+- Tesseract OCR integration via decoupled `OCREngine` protocol
+- Word-level bounding boxes and confidence score extraction
+- Page segmentation mode (PSM) experimentation
+- CER & WER quantitative evaluation with `jiwer`
+- Bounding-box visualization (`06_ocr_boxes.jpg`)
+- 21 automated unit tests
+
+### Phase 2 — Deep Learning Object Detection
+**Status: Next**
+
+Planned:
+- Pretrained YOLOv8 inference
+- Bounding-box parsing & confidence thresholding
+- IoU (Intersection over Union) & NMS (Non-Maximum Suppression)
+- Custom evaluation metrics (mAP)
+- Classical CV vs. Deep Learning comparative benchmark
+
+
