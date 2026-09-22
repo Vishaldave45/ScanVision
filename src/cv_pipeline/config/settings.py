@@ -21,8 +21,17 @@ class OCRPreprocessConfig:
 
 
 @dataclass
+class OCRConfig:
+    psm: int = 3
+    oem: int = 3
+    lang: str = "eng"
+    use_preprocessed: bool = False  # If False, run OCR on rectified original; if True, on cleaned image
+
+
+@dataclass
 class PipelineConfig:
     raw_dir: Path = Path("data/raw")
     processed_dir: Path = Path("data/processed")
     detection: DetectionConfig = field(default_factory=DetectionConfig)
     ocr_preprocess: OCRPreprocessConfig = field(default_factory=OCRPreprocessConfig)
+    ocr: OCRConfig = field(default_factory=OCRConfig)

@@ -1,0 +1,14 @@
+TAX INVOICE / OFFICIAL RECEIPT
+Invoice No: INV-2026-98124
+Date: September 21, 2026
+Billed To: Dave Corporation Pvt Ltd
+GSTIN: 07AAAAA0000A1Z5
+Item Description Qty Rate Amount
+Edge Detection & Computer Vision Module 1 4,500.00 4,500.00
+Gaussian & Median Filter Processing 3 1,200.00 3,600.00
+OCR Document Text Binarization License 1 2,800.00 2,800.00
+Deep Learning Inference Pipeline 2 5,000.00 10,000.00
+Cloud API Bandwidth & Storage 12 150.00 1,800.00
+Sub Total: INR 22,700.00
+Taxes (18%): INR 4,086.00
+Grand Total: INR 26,786.00

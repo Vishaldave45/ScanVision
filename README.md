@@ -22,7 +22,10 @@ ScanVision/
 │       ├── geometry/
 │       │   └── points.py
 │       ├── ocr/
-│       │   └── document_preprocessor.py
+│       │   ├── base.py
+│       │   ├── document_preprocessor.py
+│       │   ├── result.py
+│       │   └── tesseract_engine.py
 │       ├── pipeline/
 │       │   └── document_pipeline.py
 │       ├── preprocess/

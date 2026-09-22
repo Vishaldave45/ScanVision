@@ -21,6 +21,10 @@ def display_results(result: DocumentPipelineResult) -> None:
         "OCR Ready (Cleaned)": result.cleaned,
     }
 
+    if result.warped is not None and result.ocr is not None:
+        from cv_pipeline.ocr.visualize import draw_ocr_boxes
+        windows["OCR Bounding Boxes"] = draw_ocr_boxes(result.warped, result.ocr)
+
     for win_name, win_img in windows.items():
         if win_img is not None:
             cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
@@ -82,8 +86,8 @@ def main() -> None:
         return
 
     print("Document successfully detected and rectified.")
-    if result.detected_contour is not None and result.warped is not None:
-        ordered = order_points(result.detected_contour)
+    if result.detected_corners is not None and result.warped is not None:
+        ordered = order_points(result.detected_corners)
         print(f"  Input shape:  {result.original_image.shape}")
         print(f"  Warped shape: {result.warped.shape}")
         print(f"  Corners:\n    TL: {ordered[0]}\n    TR: {ordered[1]}\n    BR: {ordered[2]}\n    BL: {ordered[3]}")
@@ -91,6 +95,15 @@ def main() -> None:
     saved = pipeline.save_artifacts(result)
     for name, path in saved.items():
         print(f"Saved artifact: {path}")
+
+    if result.ocr is not None:
+        print("\n--- OCR Results ---")
+        print(f"Recognized words: {result.ocr.word_count}")
+        print(f"Average confidence: {result.ocr.average_confidence:.2f}%")
+        print("Recognized Text Preview:")
+        preview = (result.ocr.text[:200] + "...") if len(result.ocr.text) > 200 else result.ocr.text
+        print(f"  {preview}")
+        print("-------------------")
 
     if not args.no_display:
         display_results(result)

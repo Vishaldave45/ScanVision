@@ -8,7 +8,10 @@ from cv_pipeline.config.settings import PipelineConfig
 from cv_pipeline.detect.base import DocumentDetector
 from cv_pipeline.detect.edge_detector import EdgeDocumentDetector
 from cv_pipeline.detect.threshold_detector import ThresholdDocumentDetector
+from cv_pipeline.ocr.base import OCREngine
 from cv_pipeline.ocr.document_preprocessor import DocumentPreprocessor
+from cv_pipeline.ocr.result import OCRResult
+from cv_pipeline.ocr.tesseract_engine import TesseractEngine
 from cv_pipeline.preprocess.image_preprocessor import ImagePreprocessor
 from cv_pipeline.transform.perspective import PerspectiveTransformer
 
@@ -17,16 +20,22 @@ from cv_pipeline.transform.perspective import PerspectiveTransformer
 class DocumentPipelineResult:
     """Encapsulates all intermediate and final artifacts from the document scanning pipeline."""
     original_image: np.ndarray
-    detected_contour: np.ndarray | None
+    detected_corners: np.ndarray | None
     document_image: np.ndarray | None
     warped: np.ndarray | None
     otsu: np.ndarray | None
     adaptive: np.ndarray | None
     cleaned: np.ndarray | None
+    ocr: OCRResult | None = None
 
     @property
     def has_document(self) -> bool:
-        return self.detected_contour is not None and self.warped is not None
+        return self.detected_corners is not None and self.warped is not None
+
+    @property
+    def detected_contour(self) -> np.ndarray | None:
+        """Backward compatibility alias for detected_corners."""
+        return self.detected_corners
 
 
 class DocumentPipeline:
@@ -36,6 +45,7 @@ class DocumentPipeline:
         self,
         config: PipelineConfig | None = None,
         detector: DocumentDetector | None = None,
+        ocr_engine: OCREngine | None = None,
     ) -> None:
         self.config = config or PipelineConfig()
         self.capture = ImageCapture()
@@ -62,6 +72,16 @@ class DocumentPipeline:
             from cv_pipeline.detect.fallback_detector import FallbackDetector
             self.detector = FallbackDetector([thresh_det, edge_det])
 
+        if ocr_engine is not None:
+            self.ocr_engine: OCREngine | None = ocr_engine
+        else:
+            # Default to TesseractEngine with configured parameters
+            self.ocr_engine = TesseractEngine(
+                psm=self.config.ocr.psm,
+                oem=self.config.ocr.oem,
+                lang=self.config.ocr.lang,
+            )
+
     def process(self, image: np.ndarray) -> DocumentPipelineResult:
         """Execute pipeline on an in-memory BGR or Grayscale image."""
         doc = self.detector.detect(image)
@@ -69,12 +89,13 @@ class DocumentPipeline:
         if doc is None:
             return DocumentPipelineResult(
                 original_image=image,
-                detected_contour=None,
+                detected_corners=None,
                 document_image=None,
                 warped=None,
                 otsu=None,
                 adaptive=None,
                 cleaned=None,
+                ocr=None,
             )
 
         # Draw contour on a copy of original
@@ -100,14 +121,21 @@ class DocumentPipeline:
             kernel_size=ocr_cfg.opening_kernel_size,
         )
 
+        # OCR Recognition: use warped scan by default, or cleaned if explicitly configured
+        ocr_result: OCRResult | None = None
+        if self.ocr_engine is not None:
+            target_ocr_input = cleaned if self.config.ocr.use_preprocessed else warped
+            ocr_result = self.ocr_engine.recognize(target_ocr_input)
+
         return DocumentPipelineResult(
             original_image=image,
-            detected_contour=doc,
+            detected_corners=doc,
             document_image=document_image,
             warped=warped,
             otsu=otsu,
             adaptive=adaptive,
             cleaned=cleaned,
+            ocr=ocr_result,
         )
 
     def process_file(self, file_path: str | Path) -> DocumentPipelineResult:
@@ -135,6 +163,12 @@ class DocumentPipeline:
             "04_adaptive_threshold.jpg": result.adaptive,
             "05_ocr_ready_cleaned.jpg": result.cleaned,
         }
+
+        # If OCR was performed, render 06_ocr_boxes.jpg
+        if result.warped is not None and result.ocr is not None:
+            from cv_pipeline.ocr.visualize import draw_ocr_boxes
+            ocr_boxes_img = draw_ocr_boxes(result.warped, result.ocr)
+            images_to_save["06_ocr_boxes.jpg"] = ocr_boxes_img
 
         for filename, img in images_to_save.items():
             if img is not None:

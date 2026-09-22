@@ -30,6 +30,7 @@ def test_pipeline_with_mock_detector():
     result = pipeline.process(image)
 
     assert result.has_document is True
+    assert result.detected_corners is not None
     assert result.detected_contour is not None
     assert result.warped is not None
     assert result.otsu is not None
@@ -55,3 +56,37 @@ def test_pipeline_no_document_detected():
     assert result.otsu is None
     assert result.adaptive is None
     assert result.cleaned is None
+    assert result.ocr is None
+
+
+class MockOCREngine:
+    """Mock OCR engine returning fixed test words."""
+
+    def recognize(self, image: np.ndarray):
+        from cv_pipeline.ocr.result import OCRResult, OCRWord
+        words = [
+            OCRWord(text="TAX", confidence=95.0, x=10, y=10, width=40, height=20),
+            OCRWord(text="INVOICE", confidence=90.0, x=55, y=10, width=60, height=20),
+        ]
+        return OCRResult(text="TAX INVOICE", words=words)
+
+
+def test_pipeline_with_injected_ocr_engine():
+    """Verify DocumentPipeline integrates an injected OCREngine seamlessly."""
+    image = np.full((300, 300, 3), 100, dtype=np.uint8)
+    mock_corners = np.array(
+        [[20, 20], [200, 20], [200, 200], [20, 200]],
+        dtype=np.float32,
+    )
+    mock_detector = MockDocumentDetector(corners=mock_corners)
+    mock_ocr = MockOCREngine()
+
+    pipeline = DocumentPipeline(detector=mock_detector, ocr_engine=mock_ocr)
+    result = pipeline.process(image)
+
+    assert result.has_document is True
+    assert result.ocr is not None
+    assert result.ocr.text == "TAX INVOICE"
+    assert result.ocr.word_count == 2
+    assert result.ocr.average_confidence == 92.5
+
